@@ -24,6 +24,8 @@ parser.add_argument('--lr', type=float, default=1e-3,
                     help='initial learning rate')
 parser.add_argument('--epochs', type=int, default=200,
                     help='upper epoch limit')
+parser.add_argument('--start_epoch', type=int, default=1,
+                    help='start epoch')
 parser.add_argument('--batch_size', type=int, default=1, metavar='N',
                     help='batch size')
 parser.add_argument('--dropout', type=float, default=0,
@@ -51,6 +53,9 @@ with open(os.path.join(args.out, 'args'), 'w') as f:
 if args.stdout: logging.basicConfig(format='%(asctime)s: %(message)s', datefmt='%H:%M:%S', level=logging.INFO)
 else: logging.basicConfig(format='%(asctime)s: %(message)s', datefmt='%H:%M:%S', filename=os.path.join(args.out, 'train.log'), level=logging.INFO)
 tb.configure(args.out)
+
+# Writer will output to ./runs/ directory by default
+writer = SummaryWriter()
 random.seed(1024)
 torch.manual_seed(1024)
 torch.cuda.manual_seed_all(1024)
@@ -86,17 +91,17 @@ train_url2 = "train-clean-360"
 train_url3 = "train-other-500"
 test_url = "test-clean"
 dev_url = "dev-clean"
-if not os.path.isdir("./data"):
-        os.makedirs("./data")
+if not os.path.isdir("./data_100"):
+        os.makedirs("./data_100")
 
-train_dataset1 = torchaudio.datasets.LIBRISPEECH("./data", url=train_url1, download=False)
+train_dataset1 = torchaudio.datasets.LIBRISPEECH("./data_100", url=train_url1, download=True)
 train_dataset2 = torchaudio.datasets.LIBRISPEECH("./data", url=train_url2, download=False)
 train_dataset3 = torchaudio.datasets.LIBRISPEECH("./data", url=train_url3, download=False)
-train_dataset_full = data.ConcatDataset([train_dataset1,train_dataset2,train_dataset3])
+# train_dataset_full = data.ConcatDataset([train_dataset1,train_dataset2,train_dataset3])
 dev_dataset = torchaudio.datasets.LIBRISPEECH("./data", url=dev_url, download=True)
 
 
-train_loader = data.DataLoader(dataset=train_dataset_full, pin_memory=True,
+train_loader = data.DataLoader(dataset=train_dataset1, pin_memory=True,
                                 batch_size=args.batch_size,
                                 shuffle=True,
                                 collate_fn=lambda x: data_processing(x, 'train'))
@@ -125,6 +130,7 @@ if args.start_epoch:
 
 
 tri = cvi = 0
+patience = 15
 def eval(epoch):
     global cvi
     losses = []
@@ -163,6 +169,7 @@ def train():
         x.data += noise
 
     global tri
+    global patience
     prev_loss = 10000
     best_model = None
     lr = args.lr
@@ -224,6 +231,7 @@ def train():
             best_model = '{}/params_epoch{:02d}_tr{:.2f}_cv{:.2f}'.format(args.out, epoch, losses, val_l)
             # torch.save(model.state_dict(), best_model)          
         else:
+            patience -= 1
             torch.save(model.state_dict(), '{}/params_epoch{:02d}_tr{:.2f}_cv{:.2f}_rejected'.format(args.out, epoch, losses, val_l))
             # model.load_state_dict(torch.load(best_model))
             checkpoint = torch.load(best_model)
@@ -233,6 +241,9 @@ def train():
                 lr /= 2
                 adjust_learning_rate(optimizer, lr)
         save_checkpoint(checkpoint, best_model)
+        # if the model is being rejected for 10 times, halt the training.
+        if patience == 0:
+            break
 
 if __name__ == '__main__':
     train()

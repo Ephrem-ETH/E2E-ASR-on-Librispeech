@@ -50,10 +50,8 @@ use_gpu = True
 if use_gpu:
     model.cuda()
 def data_processing(data, data_type="test"):
-    mfccs = []
-    labels = []
-    input_lengths = []
-    label_lengths = []
+    mfcc = []
+    label = []
     fileid_audio = " "
     for (waveform, _, utterance, speaker_id, chapter_id, utterance_id ) in data:
         if data_type == 'test':
@@ -102,6 +100,7 @@ def distance(y, t, blank='<eps>'):
     y = remap(y, blank)
     t = remap(t, blank)
     return y, t, editdistance.eval(y, t)
+    
 # calculate sentence level character error rate(CER)
 def calculate_cer(y,t):
     y = ' '.join(y)
