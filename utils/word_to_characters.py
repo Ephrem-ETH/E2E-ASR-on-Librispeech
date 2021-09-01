@@ -1,6 +1,6 @@
 lexicon_dict = {}
 def lexicon_dic():
-    with open("mydata/local/lm/libri_lexicon.txt","r") as f:
+    with open("utils/libri_lexicon.txt","r") as f:
             for line in f:
                 word = line.split()[0]
                 characters = list(word)
